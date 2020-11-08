@@ -14,10 +14,23 @@
     <textarea name="remoteDesc" cols="40" rows="5" id="remoteDesc"></textarea>
 </br>
 </br>
-    <button onclick="setRemote()">Set Remote</button>
+    <button onclick="setRemote()">Connect</button>
+</br>
+    <textarea name="tosendField" cols="10" rows="3" id="sendField"></textarea>
+    <button onclick="send()" id="sendButton">Send</button>
+</br>
+    <textarea name="receiveField" cols="10" rows="3" id="receiveField"></textarea>
 
     <script>
         const localDesc = document.getElementById("localDesc");
+        const sendButton = document.getElementById('sendButton');
+        const sendField = document.getElementById('sendField');
+        const receiveField = document.getElementById('receiveField');
+        sendButton.disabled = true;
+        sendField.disabled = true;
+        receiveField.disabled = true;
+
+
         const configuration = {'iceServers': [{'urls': 'stun:stun.l.google.com:19302'}]}
 
         const peerConnection = new RTCPeerConnection(configuration);
@@ -36,19 +49,36 @@
             peerConnection.setRemoteDescription(JSON.parse(document.getElementById("remoteDesc").value));
         }
 
-
-        dataChannel.onopen = e=> console.log("Connection opened");
-        dataChannel.onmessage = m=> console.log(m.data);
-
         peerConnection.addEventListener('connectionstatechange', event => {
             if (peerConnection.connectionState === 'connected') {
                 console.log("Connected")
             }
         });
 
-        dataChannel.addEventListener('open', event => {
-            console.log("Connection opened");
-        });
+        function send(){
+            const msg = sendField.value;
+            sendField.value = "";
+            dataChannel.send(msg);
+        }
+
+        dataChannel.onopen = e=>{
+            sendButton.disabled = false;
+            sendField.disabled = false;
+            receiveField.disabled = false;
+        }
+
+        dataChannel.onclose = e=>{
+            sendField.value = "";
+            sendButton.disabled = true;
+            sendField.disabled = true;
+            receiveField.value = "";
+            receiveField.disabled = true;
+        }
+
+        dataChannel.onmessage= e=>{
+            receiveField.value = e.data;
+        }
+
 
     </script>
     
