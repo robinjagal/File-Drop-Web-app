@@ -1,0 +1,56 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Make</title>
+</head>
+<body>
+    
+    <button onclick="generateOffer()">Make Room</button>
+</br>
+    <textarea name="localDesc" cols="40" rows="5" id="localDesc"></textarea>
+
+    <textarea name="remoteDesc" cols="40" rows="5" id="remoteDesc"></textarea>
+</br>
+</br>
+    <button onclick="setRemote()">Set Remote</button>
+
+    <script>
+        const localDesc = document.getElementById("localDesc");
+        const configuration = {'iceServers': [{'urls': 'stun:stun.l.google.com:19302'}]}
+
+        const peerConnection = new RTCPeerConnection(configuration);
+        const dataChannel = peerConnection.createDataChannel("channel");
+
+        peerConnection.onicecandidate = e=>{
+            console.log("New ice candidate, reprinting SDP" + JSON.stringify(peerConnection.localDescription));
+            localDesc.value = JSON.stringify(peerConnection.localDescription);
+        }
+
+        function generateOffer(){
+            peerConnection.createOffer().then(o=>peerConnection.setLocalDescription(o).then(e=>console.log("Offer created and set")))
+        }
+
+        function setRemote(){
+            peerConnection.setRemoteDescription(JSON.parse(document.getElementById("remoteDesc").value));
+        }
+
+
+        dataChannel.onopen = e=> console.log("Connection opened");
+        dataChannel.onmessage = m=> console.log(m.data);
+
+        peerConnection.addEventListener('connectionstatechange', event => {
+            if (peerConnection.connectionState === 'connected') {
+                console.log("Connected")
+            }
+        });
+
+        dataChannel.addEventListener('open', event => {
+            console.log("Connection opened");
+        });
+
+    </script>
+    
+</body>
+</html>

@@ -1,0 +1,60 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Join</title>
+</head>
+<body>
+
+    
+    <textarea name="remoteDesc" cols="40" rows="5" id="remoteDesc"></textarea>
+    <button onclick="joinRoom()">Join Room</button>
+    </br>
+    <button onclick="setLocal()">update</button>
+    <textarea name="localDesc" cols="40" rows="5" id="LocalDesc"></textarea>
+
+
+    <script>
+
+        const peerConnection = new RTCPeerConnection();
+        
+
+        peerConnection.addEventListener('channel', event => {
+            const dataChannel = event.channel;
+            dataChannel.onopen = a=>{console.log("Connection Opened");}
+            dataChannel.onmessage = m=>console.log(m.data);
+        });
+
+        peerConnection.ondatachannel = e => {
+            peerConnection.dataChannel = e.channel;
+            peerConnection.dataChannel.onopen = a=>{console.log("Connection Opened");}
+            peerConnection.dataChannel.onmessage = m=>console.log(m.data);
+        }
+
+        peerConnection.onicecandidate = e=>{
+            console.log("New ice candidate found, reprinting SDP" + JSON.stringify(peerConnection.localDescription));
+            document.getElementById("LocalDesc").value = JSON.stringify(peerConnection.localDescription);
+        }
+
+        function joinRoom(){
+            
+            peerConnection.setRemoteDescription(JSON.parse(document.getElementById("remoteDesc").value)).then(a=> console.log("Offer set")).then(e=>{
+                peerConnection.createAnswer().then(a=>peerConnection.setLocalDescription(a)).then(e=>{
+                    console.log("Answer set");
+                }
+            );
+            });
+            
+        }
+
+        peerConnection.addEventListener('connectionstatechange', event => {
+            if (peerConnection.connectionState === 'connected') {
+                console.log("Connected")
+            }
+        });
+
+    </script>
+    
+</body>
+</html>
