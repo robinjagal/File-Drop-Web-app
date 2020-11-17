@@ -8,28 +8,29 @@
 <body>
 
     
-    <textarea name="remoteDesc" cols="40" rows="5" id="remoteDesc"></textarea>
-    <button onclick="joinRoom()">Join Room</button>
-</br>
-    <textarea name="localDesc" cols="40" rows="5" id="LocalDesc"></textarea>
+    <label for="username">Enter name of room to join:</label>
+    <textarea name="username" cols="12" rows="1" id="username"></textarea>
+    <button onclick="joinroom()">Join room</button>
 </br>
     <textarea name="tosendField" cols="10" rows="3" id="sendField"></textarea>
     <button onclick="send()" id="sendButton">Send</button>
 </br>
     <textarea name="receiveField" cols="10" rows="3" id="receiveField"></textarea>
-
+    <script type="text/javascript" src="//cdnjs.cloudflare.com/ajax/libs/socket.io/2.2.0/socket.io.js" integrity="sha256-yr4fRk/GU1ehYJPAs8P4JlTgu0Hdsp4ZKrx8bDEDC3I=" crossorigin="anonymous"></script>
     <script>
 
-        const localDesc = document.getElementById("localDesc");
+        const usernameid = document.getElementById("username");
         const sendButton = document.getElementById('sendButton');
         const sendField = document.getElementById('sendField');
         const receiveField = document.getElementById('receiveField');
+        var socket = io();
         sendButton.disabled = true;
         sendField.disabled = true;
         receiveField.disabled = true;
 
         const peerConnection = new RTCPeerConnection();
         var dataChannel;
+        var json;
 
         peerConnection.ondatachannel = e => {
             dataChannel = event.channel;
@@ -58,19 +59,28 @@
 
         peerConnection.onicecandidate = e=>{
             console.log("New ice candidate found, reprinting SDP" + JSON.stringify(peerConnection.localDescription));
-            document.getElementById("LocalDesc").value = JSON.stringify(peerConnection.localDescription);
+            //document.getElementById("LocalDesc").value = JSON.stringify(peerConnection.localDescription);
+            delete json.localDesc;
+            json['answer']=peerConnection.localDescription;
+            console.log(json)
+            socket.emit('answer',JSON.stringify(json));
         }
 
-        function joinRoom(){
-            
-            peerConnection.setRemoteDescription(JSON.parse(document.getElementById("remoteDesc").value)).then(a=> console.log("Offer set")).then(e=>{
-                peerConnection.createAnswer().then(a=>peerConnection.setLocalDescription(a)).then(e=>{
-                    console.log("Answer set");
-                }
-            );
-            });
-            
+        function joinroom(){
+            socket.emit('join_room',usernameid.value);
         }
+
+        socket.on('remote_desc_join', function(data){
+            json = JSON.parse(data);
+            peerConnection.setRemoteDescription(JSON.parse(json.localDesc)).then(a=> console.log("Offer set")).then(e=>{
+                    peerConnection.createAnswer().then(a=>peerConnection.setLocalDescription(a)
+                );
+            });
+        });
+
+        socket.on('notfound', function(){
+            console.log('User not  found')
+        });
 
         peerConnection.addEventListener('connectionstatechange', event => {
             if (peerConnection.connectionState === 'connected') {
