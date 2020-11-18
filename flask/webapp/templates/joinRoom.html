@@ -12,63 +12,92 @@
     <textarea name="username" cols="12" rows="1" id="username"></textarea>
     <button onclick="joinroom()">Join room</button>
 </br>
-    <textarea name="tosendField" cols="10" rows="3" id="sendField"></textarea>
-    <button onclick="send()" id="sendButton">Send</button>
+    <var id='status1'>Connection closed</var>
 </br>
-    <textarea name="receiveField" cols="10" rows="3" id="receiveField"></textarea>
-    <script type="text/javascript" src="//cdnjs.cloudflare.com/ajax/libs/socket.io/2.2.0/socket.io.js" integrity="sha256-yr4fRk/GU1ehYJPAs8P4JlTgu0Hdsp4ZKrx8bDEDC3I=" crossorigin="anonymous"></script>
+    <button onclick="closeConnection()" id="closeButton">Close Connection</button>
+</br></br>
+<a id="download"></a>
+    
+    <script type="text/javascript" src="static/socketio.js"></script>
     <script>
-
+        
+        const downloadAnchor = document.getElementById('download');
         const usernameid = document.getElementById("username");
-        const sendButton = document.getElementById('sendButton');
-        const sendField = document.getElementById('sendField');
-        const receiveField = document.getElementById('receiveField');
-        var socket = io();
-        sendButton.disabled = true;
-        sendField.disabled = true;
-        receiveField.disabled = true;
-
-        const peerConnection = new RTCPeerConnection();
+        const status1 = document.getElementById("status1");
+        const closeButton = document.getElementById("closeButton")
+        closeButton.disabled = true
+        var socket = io.connect();
+        
+        socket.emit('test');
+        var peerConnection = new RTCPeerConnection();
         var dataChannel;
         var json;
 
+        let downloadArray = [];
+        let fileSize = 0;
+        let receivedSize = 0;
+
+        peerConnection.addEventListener('connectionstatechange', event => {
+            if (peerConnection.connectionState === 'connected') {
+                closeButton.disabled = false
+                status1.innerHTML = "Connection established"
+            }
+        });
+
         peerConnection.ondatachannel = e => {
             dataChannel = event.channel;
-            sendButton.disabled = false;
-            sendField.disabled = false;
-            receiveField.disabled = false;
+            
 
             dataChannel.onopen = e=>{
-            sendButton.disabled = false;
-            sendField.disabled = false;
-            receiveField.disabled = false;
+                
             }
 
             dataChannel.onclose = e=>{
-                sendField.value = "";
-                sendButton.disabled = true;
-                sendField.disabled = true;
-                receiveField.value = "";
-                receiveField.disabled = true;
+                closeButton.disabled = false
+                status1.innerHTML = "Connection closed"
             }
 
             dataChannel.onmessage= e=>{
-                receiveField.value = e.data;
+                if(receivedSize==0){
+                    console.log("File transfer started")
+                }
+                downloadArray.push(e.data);
+                receivedSize += e.data.byteLength;
+
+                if(receivedSize == fileSize){
+                    console.log("File fully received");
+                    console.log(fileSize);
+                    
+                    const received = new Blob(downloadArray)
+                    console.log(received)
+                    downloadAnchor.href = URL.createObjectURL(received);
+                    downloadAnchor.download = "File"
+                    downloadAnchor.textContent = "Click to download"
+                    downloadArray = [];
+                    return ;
+                }
             }
         }
 
         peerConnection.onicecandidate = e=>{
-            console.log("New ice candidate found, reprinting SDP" + JSON.stringify(peerConnection.localDescription));
-            //document.getElementById("LocalDesc").value = JSON.stringify(peerConnection.localDescription);
             delete json.localDesc;
             json['answer']=peerConnection.localDescription;
             console.log(json)
             socket.emit('answer',JSON.stringify(json));
         }
 
+        function closeConnection(){
+            peerConnection.close();
+        }
+
         function joinroom(){
+            //peerConnection = new RTCPeerConnection();
             socket.emit('join_room',usernameid.value);
         }
+
+        socket.on('response_file_info', function(data){
+            fileSize = data;
+        });
 
         socket.on('remote_desc_join', function(data){
             json = JSON.parse(data);
@@ -79,6 +108,7 @@
         });
 
         socket.on('notfound', function(){
+            usernameid.value = "User not found"
             console.log('User not  found')
         });
 

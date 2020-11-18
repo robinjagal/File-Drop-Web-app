@@ -21,7 +21,7 @@ def joinRoom():
 
 @socketio.on('connect')
 def connect():
-    print('User connected')
+    print('User connected '+str(request.sid) )
 
 @socketio.on('disconnect')
 def disconnect():
@@ -51,6 +51,7 @@ def user_added(data):
 @socketio.on('join_room')
 def join_room(data):
     if data in roomid:
+        roomid[data]['joinsid'] = request.sid
         emit('remote_desc_join',json.dumps(roomid[data]))
     else:
         emit('notfound')
@@ -61,4 +62,13 @@ def answer(data):
     if json_dict['sid'] in sockets:
         sid = json_dict['sid']
         emit('set_remote',json.dumps(json_dict['answer']),room=sid)
-    
+
+@socketio.on('test')
+def answer():
+    print("working")
+
+@socketio.on('file_info')
+def file_info(fileSize):
+    if request.sid in sockets:
+        joinsid = roomid[sockets[request.sid]]['joinsid']
+        emit('response_file_info',fileSize,room=joinsid)

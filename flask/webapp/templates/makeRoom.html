@@ -6,28 +6,29 @@
     <title>Make</title>
 </head>
 <body>
-
+    <var id='status1'>Waiting to create a room</var> </br>
     <label for="username">Enter name of room:</label>
-    <textarea name="username" cols="10" rows="2" id="username"></textarea>
+    <textarea name="username" cols="12" rows="1" id="username"></textarea>
     <button onclick="makeroom()">Make room</button>
 </br>
+    <var id='status2'>Connection is closed</var>
+    <button onclick="closeConnection()" id="closeButton">Close connection</button>
+</br></br>
+    <input type='file' id='inputFile'>
+    <button onclick="sendFile()" id="sendButton">Send File</button>
 
-    <textarea name="tosendField" cols="10" rows="3" id="sendField"></textarea>
-    <button onclick="send()" id="sendButton">Send</button>
-</br>
-    <textarea name="receiveField" cols="10" rows="3" id="receiveField"></textarea>
-
-    <script type="text/javascript" src="//cdnjs.cloudflare.com/ajax/libs/socket.io/2.2.0/socket.io.js" integrity="sha256-yr4fRk/GU1ehYJPAs8P4JlTgu0Hdsp4ZKrx8bDEDC3I=" crossorigin="anonymous"></script>
+    <script type="text/javascript" src="static/socketio.js"></script>
     <script>
         const usernameid = document.getElementById("username");
-        const sendButton = document.getElementById('sendButton');
-        const sendField = document.getElementById('sendField');
-        const receiveField = document.getElementById('receiveField');
-        sendButton.disabled = true;
-        sendField.disabled = true;
-        receiveField.disabled = true;
-        var socket = io()
+        const status1 = document.getElementById("status1");
+        const closeButton = document.getElementById("closeButton")
+        const status2 = document.getElementById("status2");
+        const sendButton = document.getElementById("sendButton");
+        closeButton.disabled = true
+        sendButton.disabled = true
+        var socket = io.connect();
         var json = {}
+        let fileReader;
         const configuration = {'iceServers': [{'urls': 'stun:stun.l.google.com:19302'}]}
 
         const peerConnection = new RTCPeerConnection(configuration);
@@ -42,7 +43,9 @@
                     json.username = usernameid.value
                     json.localDesc = JSON.stringify(o);
                     if(json.localDesc){
+                        console.log("Making a room ...")
                         socket.emit('user_added',JSON.stringify(json));
+                        status1.innerHTML = "Room created"
                     }
                 }
             ))
@@ -55,37 +58,70 @@
         });
 
         socket.on('duplicate', function(){
-            console.log("Username already taken")
+            console.log("Room already taken")
         });
 
         peerConnection.addEventListener('connectionstatechange', event => {
             if (peerConnection.connectionState === 'connected') {
+                status2.innerHTML = "Connection established"
+                sendButton.disabled = false
+                closeButton.disabled = false
                 console.log("Connected")
             }
         });
 
+        function closeConnection(){
+            sendButton.disabled = true
+            peerConnection.close();
+        }
+
+        function sendFile(){
+            var file = document.getElementById('inputFile').files[0];
+            console.log(file);
+            if(file.size == 0){
+                console.log("File is empty")
+                return ;
+            }
+            let offset = 0;
+            const chunksize = 1024*16;
+            socket.emit('file_info',file.size);
+            fileReader = new FileReader();
+            fileReader.addEventListener('error', e=> console.error("Error reading file"));
+
+            fileReader.addEventListener('load', function(data){
+                dataChannel.send(data.target.result);
+                offset += data.target.result.byteLength;
+                if(offset < file.size){
+                    readSlice(offset);
+                }
+                else{
+                    console.log("File transfer completed")
+                }
+            });
+
+            function readSlice(doneSize){
+                const slice = file.slice(offset,doneSize+chunksize);
+                fileReader.readAsArrayBuffer(slice);
+            }
+            readSlice(0);
+
+        }
+
         function send(){
-            const msg = sendField.value;
-            sendField.value = "";
-            dataChannel.send(msg);
+            
         }
 
         dataChannel.onopen = e=>{
-            sendButton.disabled = false;
-            sendField.disabled = false;
-            receiveField.disabled = false;
+            status2.innerHTML = "Connection established"
         }
 
         dataChannel.onclose = e=>{
-            sendField.value = "";
-            sendButton.disabled = true;
-            sendField.disabled = true;
-            receiveField.value = "";
-            receiveField.disabled = true;
+            closeButton.disabled = true
+            status2.innerHTML = "Connection closed"
         }
 
         dataChannel.onmessage= e=>{
-            receiveField.value = e.data;
+            
         }
 
 
